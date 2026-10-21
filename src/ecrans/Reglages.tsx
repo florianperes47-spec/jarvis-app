@@ -1,0 +1,46 @@
+/**
+ * Réglages de l'appli (appui long en haut à droite, ou sur le cœur). Rien de perso au salon : en mode foyer, seuls
+ * l'écoute, la sensibilité et l'appairage sont proposés.
+ */
+import { Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import { ORDRE } from "../ecoute/decoupe";
+import type { Reglages as R } from "../reglages";
+import { theme } from "../theme/jetons";
+import { styles } from "./styles";
+
+export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
+  r: R; onChange: (r: R) => void; onPair: () => void; onClose: () => void; micNatif: boolean;
+}) {
+  const { width } = useWindowDimensions();
+  const t = theme();
+  const perso = r.mode === "perso";
+  const ligne = (titre: string, aide: string, valeur: boolean, cle: keyof R) => (
+    <View style={styles.ligne} key={cle}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.texte}>{titre}</Text>
+        {aide ? <Text style={styles.aide}>{aide}</Text> : null}
+      </View>
+      <Switch value={valeur} onValueChange={(v) => onChange({ ...r, [cle]: v })} trackColor={{ true: t.couleurs.accent }} />
+    </View>
+  );
+  return (
+    <ScrollView contentContainerStyle={[styles.pair, { width: Math.min(width - 32, 560) }]}>
+      <Text style={styles.titre}>RÉGLAGES</Text>
+      <Text style={styles.aide}>{perso ? "Mode Flo" : "Mode foyer (salon) : aucune donnée perso"} · {r.address.replace(/^https:\/\//, "")}</Text>
+      {ligne("Écoute continue", "Dis « Jarvis, … » sans toucher l'écran ; 30 s pour enchaîner après chaque réponse.", r.continu, "continu")}
+      <View style={styles.ligne}>
+        <Text style={styles.texte}>Sensibilité du micro</Text>
+        <Pressable onPress={() => onChange({ ...r, sens: ORDRE[(ORDRE.indexOf(r.sens) + 1) % ORDRE.length] })}>
+          <Text style={styles.lien}>{r.sens} ▾</Text>
+        </Pressable>
+      </View>
+      {perso ? ligne("Micro toujours prêt", "Le bouton micro part sans délai (point orange visible appli ouverte).", r.pret, "pret") : null}
+      {perso ? ligne("Écran toujours allumé", "", r.awake, "awake") : null}
+      {perso ? ligne("Notifications", "Rappels, minuteurs, production, crédits (appli ouverte au moins une fois).", r.notifs, "notifs") : null}
+      {ligne("Écoute en arrière-plan", "Écran verrouillé ou autre appli : seulement avec l'appli installée (development build, compte développeur). Sans effet dans Expo Go.", r.arrierePlan, "arrierePlan")}
+      {ligne("Micro de la page (secours)", micNatif ? "L'ancienne écoute de la page, sans le micro de l'appli." : "Le micro natif n'est pas disponible ici : la page garde le sien.", r.microPage, "microPage")}
+      <Pressable style={styles.bouton} onPress={onClose}><Text style={styles.boutonTexte}>Fermer</Text></Pressable>
+      <Pressable onPress={onPair}><Text style={styles.lien}>Nouvel appairage (nouveau code QR)</Text></Pressable>
+    </ScrollView>
+  );
+}

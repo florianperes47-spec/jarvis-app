@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Jarvis",
+    "slug": "jarvis",
+    "scheme": "jarvis",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0F12",
+    "ios": {
+      "supportsTablet": true,
+      "requireFullScreen": false,
+      "bundleIdentifier": "fr.flo.jarvis",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Jarvis écoute quand tu lui dis « Jarvis, … » : le son part seulement vers ton PC, par Tailscale. Écoute en arrière-plan seulement si tu l'actives.",
+        "NSCameraUsageDescription": "La caméra sert seulement à lire le code QR d'appairage de Jarvis.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F12",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La caméra sert seulement à lire le code QR d'appairage de Jarvis.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Jarvis écoute quand tu lui dis « Jarvis, … » : le son part seulement vers ton PC, par Tailscale. Écoute en arrière-plan seulement si tu l'actives.",
+          "enableBackgroundRecording": true,
+          "enableBackgroundPlayback": true,
+          "recordAudioAndroid": true
+        }
+      ],
+      "expo-notifications",
+      "expo-asset"
+    ]
+  }
+}

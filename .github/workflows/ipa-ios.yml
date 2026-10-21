@@ -1,0 +1,70 @@
+# IPA iOS NON SIGNÉE (AltStore la signe ensuite). Aucun identifiant Apple, aucun certificat, aucun secret.
+# Exigences du SDK Expo 57 : Xcode ≥ 26.4, Node ≥ 22.13 → image macos-26 (Xcode 26.6).
+name: IPA iOS (AltStore)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ipa-ios
+  cancel-in-progress: false
+
+jobs:
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode 26.6
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app || ls /Applications | grep -i xcode
+          xcodebuild -version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Projet iOS généré (prebuild ; ios/ n'est jamais dans le dépôt)
+        run: npx expo prebuild --platform ios --no-install
+        env:
+          EXPO_NO_TELEMETRY: "1"
+
+      - name: CocoaPods
+        run: npx pod-install ios
+
+      - name: Archive sans signature
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -workspace ios/Jarvis.xcworkspace \
+            -scheme Jarvis \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Jarvis.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            | tail -n 200
+
+      - name: IPA (Payload/Jarvis.app zippé) et vérifications
+        run: |
+          APP="build/Jarvis.xcarchive/Products/Applications/Jarvis.app"
+          test -d "$APP"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist" | grep -x "fr.flo.jarvis"
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP/Info.plist"
+          mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          cd build && zip -qry Jarvis-non-signee.ipa Payload
+          ls -lh Jarvis-non-signee.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jarvis-ipa-non-signee
+          path: build/Jarvis-non-signee.ipa
+          retention-days: 7
