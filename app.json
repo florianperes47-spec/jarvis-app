@@ -36,7 +36,7 @@
         "expo-camera",
         {
           "cameraPermission": "La caméra sert seulement à lire le code QR d'appairage de Jarvis.",
-          "microphonePermission": false,
+          "microphonePermission": "Jarvis écoute quand tu lui dis « Jarvis, … » : le son part seulement vers ton PC, par Tailscale. Écoute en arrière-plan seulement si tu l'actives.",
           "recordAudioAndroid": false
         }
       ],
