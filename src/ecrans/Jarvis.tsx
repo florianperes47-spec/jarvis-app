@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { entrySource, NARROW_PT, sameSite, startUrl } from "../adresse";
+import { entrySource, messageRefus, NARROW_PT, sameSite, startUrl } from "../adresse";
 import * as routes from "../ecoute/routes";
 import { toBase64 } from "../ecoute/wav";
 import { useEcoute, type Envoi } from "../natif/useEcoute";
@@ -24,9 +24,10 @@ import { VueWeb, type VueWebRef } from "./VueWeb";
 
 type Attente = { ok: (r: { ok: boolean; status: number; data: unknown }) => void; ko: (e: Error) => void; t: ReturnType<typeof setTimeout> };
 
-export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu }: {
+export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu, onRefus }: {
   r: Reglages; entry: string; ordre: { o: Ordre; n: number } | null;
   onSettings: () => void; onToggleContinu: () => void;
+  onRefus: (message: string) => void;               // le PC refuse la session : retour au scanner (App.tsx)
 }) {
   const view = useRef<VueWebRef>(null);
   const [failed, setFailed] = useState("");
@@ -145,7 +146,8 @@ export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu }: {
         onMessage={onMessage}
         onLoadStart={() => { setPret(false); toutRejeter("La page se recharge."); }}
         onLoadEnd={() => { if (entry && uri === entry) setUri(page); }}
-        onFailed={setFailed} />
+        onFailed={setFailed}
+        onRefused={(status) => onRefus(messageRefus(status, !!entry && uri === entry))} />
       {micNatif ? (
         <View pointerEvents="box-none" style={[s.dock, foyer ? s.dockFoyer : s.dockHaut]}>
           {foyer ? null : <Coeur etat={ecoute.etat} taille={40} onPress={ecoute.parler} onLongPress={onSettings} />}

@@ -59,6 +59,18 @@ export function entrySource(entry: string): Source {
   };
 }
 
+/** 21/10 au soir (IPA iloader) : le PC refuse la page (401/403) quand la vue web n'a plus le cookie de session
+ * (appli fermée net juste après l'appairage, avant que iOS ait écrit le cookie ; appli réinstallée : le trousseau
+ * garde l'adresse, la vue web a perdu le cookie). Avant, l'appli restait sur « Accès refusé » et la page du PC parlait
+ * de Safari et d'écran d'accueil ; maintenant elle revient au scanner avec ce message. "" : pas un refus de session.
+ * `appairage` : le refus vient du POST d'appairage lui-même (code périmé ou déjà servi). */
+export function messageRefus(status: number, appairage: boolean): string {
+  if (status !== 401 && status !== 403) return "";
+  return appairage
+    ? "Code périmé ou déjà servi : scanne le code tout neuf affiché par « jarvis telephone --qr » (une minute)."
+    : "Ton Jarvis ne reconnaît plus cette appli (session perdue) : scanne un nouveau code QR, « jarvis telephone --qr » sur le PC.";
+}
+
 export function checkAddress(address: string): string {
   let url: URL;
   try {

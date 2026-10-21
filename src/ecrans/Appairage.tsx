@@ -6,9 +6,12 @@ import { type Pairing, readPairing } from "../adresse";
 import { theme } from "../theme/jetons";
 import { styles } from "./styles";
 
-export function Appairage({ onPaired, onCancel }: { onPaired: (p: Pairing) => void; onCancel?: () => void }) {
+export function Appairage({ onPaired, onCancel, message = "" }: {
+  onPaired: (p: Pairing) => void; onCancel?: () => void;
+  message?: string;                                  // retour ici après un refus du PC (session perdue, code périmé)
+}) {
   const [permission, ask] = useCameraPermissions();
-  const [problem, setProblem] = useState("");
+  const [problem, setProblem] = useState(message);
   const [typed, setTyped] = useState("");
   const done = useRef(false);
   const { width } = useWindowDimensions();

@@ -33,6 +33,7 @@ export default function App() {
   const [entry, setEntry] = useState("");            // le code à usage unique, en mémoire le temps d'entrer
   const [ecran, setEcran] = useState<Ecran>(apercuEcran());
   const [ordre, setOrdre] = useState<{ o: Ordre; n: number } | null>(null);
+  const [motif, setMotif] = useState("");            // pourquoi on revient au scanner (session perdue, code périmé)
 
   useEffect(() => { void charger().then(setR); }, []);
 
@@ -67,8 +68,12 @@ export default function App() {
     await oublier();
     await changer(n);
     setEntry(p.entry);
+    setMotif("");
     setEcran("jarvis");
   }, [r, changer]);
+
+  // Le PC refuse la session (cookie perdu, code périmé) : droit au scanner, avec la raison (adresse.ts, messageRefus).
+  const refus = useCallback((message: string) => { setEntry(""); setMotif(message); setEcran("appairage"); }, []);
 
   const toggleContinu = useCallback(() => { if (r) void changer({ ...r, continu: !r.continu }); }, [r, changer]);
 
@@ -78,12 +83,12 @@ export default function App() {
       <SafeAreaView style={styles.page} edges={["top", "bottom", "left", "right"]}>
         {r === undefined ? <ActivityIndicator color={theme().couleurs.accent} style={styles.grow} />
           : !r || ecran === "appairage"
-            ? <Appairage onPaired={paired} onCancel={r ? () => setEcran("jarvis") : undefined} />
+            ? <Appairage onPaired={paired} message={motif} onCancel={r ? () => { setMotif(""); setEcran("jarvis"); } : undefined} />
             : ecran === "reglages"
               ? <EcranReglages r={r} onChange={(n) => void changer(n)} onPair={() => { setEntry(""); setEcran("appairage"); }}
                   onClose={() => setEcran("jarvis")} micNatif={!r.microPage} />
               : <Jarvis r={r} entry={entry} ordre={ordre} onSettings={() => setEcran("reglages")}
-                  onToggleContinu={toggleContinu} />}
+                  onToggleContinu={toggleContinu} onRefus={refus} />}
       </SafeAreaView>
     </SafeAreaProvider>
   );

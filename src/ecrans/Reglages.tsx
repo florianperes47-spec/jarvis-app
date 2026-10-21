@@ -37,7 +37,7 @@ export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
       {perso ? ligne("Micro toujours prêt", "Le bouton micro part sans délai (point orange visible appli ouverte).", r.pret, "pret") : null}
       {perso ? ligne("Écran toujours allumé", "", r.awake, "awake") : null}
       {perso ? ligne("Notifications", "Rappels, minuteurs, production, crédits (appli ouverte au moins une fois).", r.notifs, "notifs") : null}
-      {ligne("Écoute en arrière-plan", "Écran verrouillé ou autre appli : seulement avec l'appli installée (development build, compte développeur). Sans effet dans Expo Go.", r.arrierePlan, "arrierePlan")}
+      {ligne("Écoute en arrière-plan", "Écran verrouillé ou autre appli : appli installée seulement (sans effet dans Expo Go).", r.arrierePlan, "arrierePlan")}
       {ligne("Micro de la page (secours)", micNatif ? "L'ancienne écoute de la page, sans le micro de l'appli." : "Le micro natif n'est pas disponible ici : la page garde le sien.", r.microPage, "microPage")}
       <Pressable style={styles.bouton} onPress={onClose}><Text style={styles.boutonTexte}>Fermer</Text></Pressable>
       <Pressable onPress={onPair}><Text style={styles.lien}>Nouvel appairage (nouveau code QR)</Text></Pressable>

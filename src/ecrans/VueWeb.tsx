@@ -14,6 +14,7 @@ export type VueWebProps = {
   onMessage: (data: string, url: string) => void;
   onLoadStart: () => void; onLoadEnd: () => void;
   onFailed: (message: string) => void;
+  onRefused: (status: number) => void;               // 401/403 du PC : session perdue ou code périmé (adresse.ts)
 };
 
 export type VueWebRef = { injectJavaScript: (js: string) => void; reload: () => void };
@@ -35,7 +36,8 @@ export const VueWeb = forwardRef<VueWebRef, VueWebProps>(function VueWeb(p, ref)
       onLoadEnd={p.onLoadEnd}
       onError={(event) => p.onFailed(`Jarvis ne répond pas (${event.nativeEvent.description}).`)}
       onHttpError={(event) => {
-        if (event.nativeEvent.statusCode === 403) p.onFailed("Accès refusé : refais l'appairage avec un nouveau code QR.");
+        const status = event.nativeEvent.statusCode;
+        if ((status === 401 || status === 403) && sameSite(p.address, event.nativeEvent.url)) p.onRefused(status);
       }} />
   );
 });
