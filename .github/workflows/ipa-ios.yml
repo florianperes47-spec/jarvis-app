@@ -58,6 +58,9 @@ jobs:
           test -d "$APP"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist" | grep -x "fr.flo.jarvis"
           /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP/Info.plist"
+          # mises à jour OTA (22/10) : adresse et certificat embarqués (information, ne bloque pas)
+          /usr/libexec/PlistBuddy -c "Print :EXUpdatesURL" "$APP/Expo.plist" || echo "ATTENTION : pas d'EXUpdatesURL"
+          /usr/libexec/PlistBuddy -c "Print :EXUpdatesRuntimeVersion" "$APP/Expo.plist" || true
           mkdir -p build/Payload
           cp -R "$APP" build/Payload/
           cd build && zip -qry Jarvis-non-signee.ipa Payload

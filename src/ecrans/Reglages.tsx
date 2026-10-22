@@ -3,7 +3,9 @@
  * l'écoute, la sensibilité et l'appairage sont proposés.
  */
 import { Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import * as Updates from "expo-updates";
 import { ORDRE } from "../ecoute/decoupe";
+import { ligneVersion } from "../miseAJour";
 import type { Reglages as R } from "../reglages";
 import { theme } from "../theme/jetons";
 import { styles } from "./styles";
@@ -41,6 +43,10 @@ export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
       {ligne("Micro de la page (secours)", micNatif ? "L'ancienne écoute de la page, sans le micro de l'appli." : "Le micro natif n'est pas disponible ici : la page garde le sien.", r.microPage, "microPage")}
       <Pressable style={styles.bouton} onPress={onClose}><Text style={styles.boutonTexte}>Fermer</Text></Pressable>
       <Pressable onPress={onPair}><Text style={styles.lien}>Nouvel appairage (nouveau code QR)</Text></Pressable>
+      <Text style={styles.aide}>{ligneVersion({
+        version: Updates.runtimeVersion ?? "", updateId: Updates.updateId,
+        integree: Updates.isEmbeddedLaunch, creeLe: Updates.createdAt,
+      })}</Text>
     </ScrollView>
   );
 }

@@ -29,6 +29,11 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# Mises à jour OTA (22/10) : seul le CERTIFICAT public est suivi ; la clé privée reste dans
+# %LOCALAPPDATA%\jarvis\appli_ota\keys\ (jamais dans le dépôt, jamais publiée)
+!/certs/certificate.pem
+/keys/
+private-key*
 
 # local env files
 .env*.local
