@@ -1,19 +1,23 @@
 /**
- * L'écoute native de l'appli (chantier 4, 20/10) : le micro de l'iPhone ou de l'iPad, ouvert en permanence tant que
- * l'appli est au premier plan (ou aussi en arrière-plan si Flo l'active : development build seulement).
+ * L'écoute native de l'appli (chantier 4, 20/10) : le micro de l'iPhone ou de l'iPad.
+ * 23/10 (lot 4, règle de Flo) : ouvert SEULEMENT pendant une écoute — bouton micro, ou écoute continue / micro
+ * toujours prêt choisis dans les Réglages (coupés par défaut) ; au premier plan (ou aussi en arrière-plan si Flo
+ * l'active : development build seulement). Dès qu'il n'écoute plus : flux stoppé, session en lecture seule
+ * (`allowsRecording: false`) et rendue à iOS si rien ne joue (natif/sessionMicro.ts) : le point orange s'éteint.
  *
- * - Flux PCM continu (expo-audio `AudioStream`, 16 kHz mono int16, morceaux de 0,1 s) : pas de micro rouvert à
- *   chaque phrase, donc pas de coupure entre deux demandes (« mets YouTube », « cherche des vidéos de… », « la
- *   deuxième »), et 0,3 s gardées avant chaque phrase.
+ * - Flux PCM continu pendant l'écoute continue (expo-audio `AudioStream`, 16 kHz mono int16, morceaux de 0,1 s) :
+ *   pas de micro rouvert à chaque phrase, donc pas de coupure entre deux demandes (« mets YouTube », « cherche des
+ *   vidéos de… », « la deuxième »), et 0,3 s gardées avant chaque phrase.
  * - Découpage des phrases (ecoute/decoupe.ts), envoi au PC par la page (pont.ts) : /api/ecoute (Flo) ou
  *   /api/salon/ecoute (salon) ; réveil « Jarvis, … » décidé par le PC (jarvis.ecoute), conversation ouverte 30 s
  *   après chaque réponse (ecoute/conversation.ts).
  * - Pendant que Jarvis parle, le micro est COUPÉ (pas seulement ignoré) : iOS ne peut pas jouer un son pendant ce
  *   flux (mode « enregistrement ») ; il ne s'entend donc jamais. Il est rouvert dès la fin de la réponse.
  * - Un son de la page (réponse écrite, recette, voix de secours) demande d'abord le haut-parleur : même règle.
- * - Bouton micro : la demande suivante part sans « Jarvis » (/api/voice ou /api/salon/voix), avec les 0,3 s d'avant
- *   l'appui (micro déjà ouvert : instantané).
+ * - Bouton micro : la demande suivante part sans « Jarvis » (/api/voice ou /api/salon/voix) ; le micro s'ouvre à
+ *   l'appui (les 0,3 s d'avant l'appui seulement si le micro était déjà ouvert par choix).
  */
+import * as ExpoAudio from "expo-audio";
 import {
   AudioModule, requestRecordingPermissionsAsync, setAudioModeAsync,
 } from "expo-audio";
@@ -26,6 +30,13 @@ import * as routes from "../ecoute/routes";
 import { level, normaliser, RATE, versPcm16, wav16k, type Encodage } from "../ecoute/wav";
 import type { EtatCoeur } from "../theme/jetons";
 import { Lecteur, type Morceau } from "./lecteur";
+import { aRefermer, type Audio, fermerMicro, microVoulu, modeEcoute, ouvrirMicro } from "./sessionMicro";
+
+// expo-audio 57 exporte setIsAudioActiveAsync ; lu sans l'exiger (un Expo Go plus ancien ne l'a peut-être pas).
+const AUDIO: Audio = {
+  setAudioModeAsync,
+  setIsAudioActiveAsync: (ExpoAudio as unknown as { setIsAudioActiveAsync?: (a: boolean) => Promise<void> }).setIsAudioActiveAsync,
+};
 
 export type Envoi = (req: routes.Requete, corps?: Uint8Array) => Promise<{ ok: boolean; status: number; data: unknown }>;
 
@@ -115,9 +126,9 @@ export function useEcoute(o: Options): Ecoute {
   /** Le micro doit-il être ouvert maintenant ? */
   const voulu = useCallback(() => {
     const p = opt.current;
-    if (!p.actif || !permis.current || parle.current || sonDePage.current) return false;
-    if (!premierPlan.current && !p.arrierePlan) return false;
-    return p.continu || p.pret || dec.current.enParole();
+    return microVoulu({ actif: p.actif, permis: permis.current, parle: parle.current, sonDePage: sonDePage.current,
+      premierPlan: premierPlan.current, arrierePlan: p.arrierePlan, continu: p.continu, pret: p.pret,
+      enParole: dec.current.enParole() });
   }, []);
 
   const ajuster = useCallback((): Promise<void> => {
@@ -126,7 +137,7 @@ export function useEcoute(o: Options): Ecoute {
       if (!s) return;
       const v = voulu();
       if (v && !s.isStreaming) {
-        try { await s.start(); } catch (err) {
+        try { await ouvrirMicro(s, AUDIO, opt.current.arrierePlan); } catch (err) {
           // stop() libère les ressources natives : après une réponse, le même flux peut ne plus redémarrer.
           if (!recreer.current() || !flux.current) throw err;
           mesures.current.recrees += 1;
@@ -138,8 +149,14 @@ export function useEcoute(o: Options): Ecoute {
           setTimeout(() => diag("30 s après l'ouverture du micro"), 30000);
         }
       }
-      else if (!v && s.isStreaming) s.stop();
+      else if (!v && s.isStreaming) {
+        // 23/10 : micro rendu en entier ; la session n'est désactivée que si rien ne va jouer (Jarvis, la page).
+        const silence = !parle.current && !sonDePage.current && !lecteur.current.enCours;
+        await fermerMicro(s, AUDIO, { arrierePlan: opt.current.arrierePlan, silence });
+      }
     }).catch((err: unknown) => {
+      const s = flux.current;                        // jamais un micro à moitié ouvert après une erreur
+      if (s) void fermerMicro(s, AUDIO, { arrierePlan: opt.current.arrierePlan, silence: !parle.current && !sonDePage.current });
       setInfo(`Micro indisponible : ${err instanceof Error ? err.message : String(err)}`);
     }).finally(rafraichir);
     return chaine.current;
@@ -248,7 +265,9 @@ export function useEcoute(o: Options): Ecoute {
     recreer.current = creer;
     return () => {
       sub?.remove(); recreer.current = () => false;
-      try { flux.current?.stop(); flux.current?.release?.(); } catch { /* déjà libéré */ }
+      const s = flux.current;
+      if (s) void fermerMicro(s, AUDIO, { arrierePlan: false, silence: true });   // stop + session rendue
+      try { s?.release?.(); } catch { /* déjà libéré */ }
       flux.current = null; lecteur.current.liberer();
     };
   }, [surMorceau, rafraichir]);
@@ -260,8 +279,9 @@ export function useEcoute(o: Options): Ecoute {
       const r = await requestRecordingPermissionsAsync();
       permis.current = r.granted;
       if (!r.granted) setInfo("Micro refusé : Réglages > Jarvis (ou Expo Go) > Micro.");
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, allowsBackgroundRecording: o.arrierePlan,
-        shouldPlayInBackground: o.arrierePlan }).catch(() => {});
+      // 23/10 : plus de session « enregistrement » posée d'office ; ouvrirMicro la pose à chaque ouverture (ici
+      // seulement si le micro est déjà ouvert et que le réglage d'arrière-plan change).
+      if (flux.current?.isStreaming) await setAudioModeAsync(modeEcoute(o.arrierePlan)).catch(() => {});
       await ajuster();
     })();
   }, [o.actif, o.arrierePlan, disponible, ajuster]);
@@ -274,9 +294,12 @@ export function useEcoute(o: Options): Ecoute {
   useEffect(() => { dec.current.sens = o.sens; void ajuster(); }, [o.continu, o.pret, o.sens, o.mode, ajuster]);
 
   useEffect(() => {                         // décompte de la conversation ouverte (une fois par seconde)
-    const t = setInterval(rafraichir, 1000);
+    const t = setInterval(() => {
+      rafraichir();
+      if (aRefermer(!!flux.current?.isStreaming, voulu())) void ajuster();   // filet : micro rendu en moins de 2 s
+    }, 1000);
     return () => clearInterval(t);
-  }, [rafraichir]);
+  }, [rafraichir, voulu, ajuster]);
 
   const parler = useCallback(() => {
     if (parle.current) { lecteur.current.couper(); return; }             // Jarvis parle : il se tait

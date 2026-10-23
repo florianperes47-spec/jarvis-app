@@ -73,6 +73,11 @@ export function scriptPont(nonce: string, mode: Mode, micro: boolean): string {
     },
     ack: function (id) { var f = attente[id]; if (f) { delete attente[id]; f(); } },
     micro: function (on) { MICRO = !!on; },
+    // 23/10 (appli iPhone, lot 1) : l'état du micro natif montré par la page elle-même (jarvis.js, appliMicro)
+    etat: function (e, info, reste) {
+      var j = window.JVEssai; if (!j || !j.appliMicro) return;
+      try { j.appliMicro(String(e || ""), String(info || ""), Number(reste) || 0); } catch (x) {}
+    },
     afficher: function (entendu, reponse, vue) {
       var j = window.JVEssai; if (!j) return;
       try {
@@ -139,6 +144,11 @@ export function ack(id: string): string {
 
 export function micro(on: boolean): string {
   return `window.__jarvisPont && window.__jarvisPont.micro(${on ? "true" : "false"}); true;`;
+}
+
+/** L'état du micro natif à montrer dans la page (mode Flo) : plus de pastille ni de bulle natives par-dessus. */
+export function etat(e: string, info: string, reste: number): string {
+  return `window.__jarvisPont && window.__jarvisPont.etat(${JSON.stringify(e)}, ${JSON.stringify(info)}, ${Number(reste) || 0}); true;`;
 }
 
 export function afficher(entendu: string, reponse: string, vue?: unknown): string {

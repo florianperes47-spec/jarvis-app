@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { type Pairing, readPairing } from "../adresse";
 import { theme } from "../theme/jetons";
+import { Logo } from "../theme/Logo";
 import { styles } from "./styles";
 
 export function Appairage({ onPaired, onCancel, message = "" }: {
@@ -25,7 +26,7 @@ export function Appairage({ onPaired, onCancel, message = "" }: {
   };
   return (
     <View style={[styles.pair, { width: Math.min(width - 32, 560) }]}>
-      <Text style={styles.titre}>JARVIS</Text>
+      <Logo />
       <Text style={styles.texte}>Scanne le code QR d'appairage :</Text>
       <Text style={styles.aide}>• ton Jarvis : « jarvis telephone --qr » sur le PC ;{"\n"}• l'écran du salon : la page
         « /salon/code » du Jarvis du foyer, sur le PC.</Text>

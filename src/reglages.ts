@@ -43,9 +43,10 @@ async function set(k: string, v: string): Promise<void> {
   await SecureStore.setItemAsync(k, v);
 }
 
-/** Valeurs par défaut : écoute continue en marche, micro prêt, notifications ; arrière-plan arrêté. */
+/** Valeurs par défaut : notifications ; écoute continue, micro toujours prêt et arrière-plan COUPÉS (23/10, lot 4 :
+ * le micro ne s'ouvre qu'à l'appui, Flo choisit l'écoute continue dans les Réglages). */
 export function defaut(address: string, mode: Mode): Reglages {
-  return { address, mode, awake: mode === "foyer", continu: true, sens: "normale", pret: true, arrierePlan: false,
+  return { address, mode, awake: mode === "foyer", continu: false, sens: "normale", pret: false, arrierePlan: false,
     notifs: mode === "perso", microPage: false };
 }
 
@@ -69,7 +70,10 @@ export async function charger(): Promise<Reglages | null> {
     microPage: await oui(K.microPage, r.microPage),
   };
   const finaux = migrer(lus, version);
-  if (version < VERSION) { await set(K.continu, finaux.continu ? "1" : "0"); await set(K.version, String(VERSION)); }
+  if (version < VERSION) {
+    await set(K.continu, finaux.continu ? "1" : "0"); await set(K.pret, finaux.pret ? "1" : "0");
+    await set(K.version, String(VERSION));
+  }
   return finaux;
 }
 
@@ -78,6 +82,7 @@ export async function enregistrer(r: Reglages): Promise<void> {
   await set(K.mode, r.mode);
   for (const k of ["awake", "continu", "pret", "arrierePlan", "notifs", "microPage"] as const) await set(K[k], r[k] ? "1" : "0");
   await set(K.sens, r.sens);
+  await set(K.version, String(VERSION));        // un choix fait dans les Réglages n'est jamais re-migré
 }
 
 /** Nouvel appairage : l'ancienne adresse et le mode sont oubliés (le nouveau code QR les remplace). */

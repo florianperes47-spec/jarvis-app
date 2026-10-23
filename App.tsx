@@ -14,7 +14,7 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Platform } from "react-native";
+import { ActivityIndicator, Linking, Platform, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { Pairing } from "./src/adresse";
 import { Appairage } from "./src/ecrans/Appairage";
@@ -25,6 +25,7 @@ import * as notifications from "./src/notifications";
 import { lireLien, type Ordre } from "./src/raccourcis";
 import { charger, defaut, enregistrer, oublier, type Reglages } from "./src/reglages";
 import { theme } from "./src/theme/jetons";
+import { Logo } from "./src/theme/Logo";
 
 type Ecran = "jarvis" | "reglages" | "appairage";
 
@@ -81,7 +82,12 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <SafeAreaView style={styles.page} edges={["top", "bottom", "left", "right"]}>
-        {r === undefined ? <ActivityIndicator color={theme().couleurs.accent} style={styles.grow} />
+        {r === undefined ? (
+          <View style={[styles.grow, { justifyContent: "center", gap: 24 }]}>
+            <Logo />
+            <ActivityIndicator color={theme().couleurs.accent} />
+          </View>
+        )
           : !r || ecran === "appairage"
             ? <Appairage onPaired={paired} message={motif} onCancel={r ? () => { setMotif(""); setEcran("jarvis"); } : undefined} />
             : ecran === "reglages"

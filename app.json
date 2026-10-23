@@ -21,13 +21,13 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0F12",
+    "backgroundColor": "#000000",
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "fr.flo.jarvis",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Jarvis écoute quand tu lui dis « Jarvis, … » : le son part seulement vers ton PC, par Tailscale. Écoute en arrière-plan seulement si tu l'actives.",
+        "NSMicrophoneUsageDescription": "Jarvis n'écoute que quand tu touches « Touchez pour parler » (ou si tu actives le mot d'éveil dans ses Réglages) : le son part seulement vers ton PC, par Tailscale, et le micro se referme dès la fin.",
         "NSCameraUsageDescription": "La caméra sert seulement à lire le code QR d'appairage de Jarvis.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -50,21 +50,30 @@
         "expo-camera",
         {
           "cameraPermission": "La caméra sert seulement à lire le code QR d'appairage de Jarvis.",
-          "microphonePermission": "Jarvis écoute quand tu lui dis « Jarvis, … » : le son part seulement vers ton PC, par Tailscale. Écoute en arrière-plan seulement si tu l'actives.",
+          "microphonePermission": "Jarvis n'écoute que quand tu touches « Touchez pour parler » (ou si tu actives le mot d'éveil dans ses Réglages) : le son part seulement vers ton PC, par Tailscale, et le micro se referme dès la fin.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-audio",
         {
-          "microphonePermission": "Jarvis écoute quand tu lui dis « Jarvis, … » : le son part seulement vers ton PC, par Tailscale. Écoute en arrière-plan seulement si tu l'actives.",
+          "microphonePermission": "Jarvis n'écoute que quand tu touches « Touchez pour parler » (ou si tu actives le mot d'éveil dans ses Réglages) : le son part seulement vers ton PC, par Tailscale, et le micro se referme dès la fin.",
           "enableBackgroundRecording": true,
           "enableBackgroundPlayback": true,
           "recordAudioAndroid": true
         }
       ],
       "expo-notifications",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ]
     ]
   }
 }

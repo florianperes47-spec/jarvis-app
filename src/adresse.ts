@@ -85,10 +85,11 @@ export function checkAddress(address: string): string {
 
 /** La page à ouvrir : celle du salon en mode foyer ; sinon l'interface, format téléphone sur un écran étroit (iPhone,
  * iPad en partage d'écran 1/3) et format large sur l'iPad plein écran. `micNatif` (20/10) : l'appli écoute elle-même
- * (micro natif) ; sinon, en secours, la page du salon garde son écoute continue (`?ecoute=continue`). */
-export function startUrl(address: string, mode: Mode, widthPt: number, micNatif = false): string {
+ * (micro natif) ; sinon, en secours, la page du salon garde son écoute continue (`?ecoute=continue`) — 23/10 (lot 4) :
+ * seulement si Flo l'a choisie dans les Réglages (`continu`), jamais d'office. */
+export function startUrl(address: string, mode: Mode, widthPt: number, micNatif = false, continu = false): string {
   const base = address.replace(/\/+$/, "");
-  if (mode === "foyer") return micNatif ? `${base}/salon` : `${base}/salon?ecoute=continue`;
+  if (mode === "foyer") return micNatif || !continu ? `${base}/salon` : `${base}/salon?ecoute=continue`;
   return widthPt < NARROW_PT ? `${base}/?format=phone` : `${base}/`;
 }
 
