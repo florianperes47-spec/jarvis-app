@@ -102,7 +102,9 @@ export function scriptPont(nonce: string, mode: Mode, micro: boolean): string {
       var el = this;
       if (!MICRO) return play.call(el);
       if (!el.__jarvisFin) { el.__jarvisFin = true; ["ended", "pause", "error"].forEach(function (e) { el.addEventListener(e, function () { send({ evt: "son-fin" }); }); }); }
-      return demanderSon().then(function () { return play.call(el); });
+      // 23/10 : un son refusé ou interrompu sans événement rendait le micro bloqué pour toujours (« son » sans « son-fin »)
+      return demanderSon().then(function () { return play.call(el); })
+        .catch(function (err) { send({ evt: "son-fin" }); throw err; });
     };
   }
   var ss = window.speechSynthesis;
@@ -119,8 +121,16 @@ export function scriptPont(nonce: string, mode: Mode, micro: boolean): string {
     var parler = e.target.closest(PARLER), ecoute = !parler && e.target.closest(ECOUTE);
     if (!parler && !ecoute) return;
     e.stopImmediatePropagation(); e.preventDefault();
-    if (e.type === "click") send({ evt: parler ? "parler" : "ecoute" });
+    // 23/10 (régression du micro) : preventDefault sur touchstart/touchend empêche iOS de produire le « click » ;
+    // un toucher n'envoyait donc RIEN (seule une souris marchait). L'ordre part à la fin du geste (touchend,
+    // pointerup ou click), une seule fois par geste.
+    if (e.type !== "touchend" && e.type !== "pointerup" && e.type !== "click") return;
+    var t = Date.now(), quoi = parler ? "parler" : "ecoute";
+    if (quoi === dernierQuoi && t - dernier < 700) return;
+    dernier = t; dernierQuoi = quoi;
+    send({ evt: quoi });
   }
+  var dernier = 0, dernierQuoi = "";
   ["pointerdown", "pointerup", "touchstart", "touchend", "click"].forEach(function (t) { document.addEventListener(t, prise, { capture: true, passive: false }); });
   send({ evt: "pret" });
 })(); true;`;

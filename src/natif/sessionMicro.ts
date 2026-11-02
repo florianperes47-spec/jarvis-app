@@ -35,11 +35,12 @@ export function modeRepos(arrierePlan: boolean): ModeAudio {
  * jamais en arrière-plan sauf choix de Flo ; sinon seulement pendant une écoute (bouton) ou par choix (continu, prêt). */
 export function microVoulu(e: {
   actif: boolean; permis: boolean; parle: boolean; sonDePage: boolean; premierPlan: boolean; arrierePlan: boolean;
-  continu: boolean; pret: boolean; enParole: boolean;
+  continu: boolean; pret: boolean; enParole: boolean; conversation?: boolean;
 }): boolean {
   if (!e.actif || !e.permis || e.parle || e.sonDePage) return false;
   if (!e.premierPlan && !e.arrierePlan) return false;
-  return e.continu || e.pret || e.enParole;
+  // 28/10 (Flo) : mode conversation : le micro reste ouvert tant que la conversation l'est (30 s après la réponse).
+  return e.continu || e.pret || e.enParole || !!e.conversation;
 }
 
 /** Filet (23/10, appli iPhone, lot 2 : « témoin orange éteint en moins de 2 s ») : relu chaque seconde, un micro
@@ -51,6 +52,8 @@ export function aRefermer(ouvert: boolean, voulu: boolean): boolean {
 /** Ouvre le micro : session en enregistrement d'abord (elle a pu être rendue), puis le flux. */
 export async function ouvrirMicro(flux: FluxMicro, audio: Audio, arrierePlan: boolean): Promise<void> {
   await audio.setAudioModeAsync(modeEcoute(arrierePlan)).catch(() => {});
+  // 23/10 (régression du micro) : la fermeture a pu rendre la session à iOS ; elle est réactivée avant le flux.
+  if (typeof audio.setIsAudioActiveAsync === "function") await audio.setIsAudioActiveAsync(true).catch(() => {});
   await flux.start();
 }
 

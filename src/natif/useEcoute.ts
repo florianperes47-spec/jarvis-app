@@ -128,7 +128,7 @@ export function useEcoute(o: Options): Ecoute {
     const p = opt.current;
     return microVoulu({ actif: p.actif, permis: permis.current, parle: parle.current, sonDePage: sonDePage.current,
       premierPlan: premierPlan.current, arrierePlan: p.arrierePlan, continu: p.continu, pret: p.pret,
-      enParole: dec.current.enParole() });
+      enParole: dec.current.enParole(), conversation: conv.current.ouverte(Date.now()) });
   }, []);
 
   const ajuster = useCallback((): Promise<void> => {
@@ -241,7 +241,8 @@ export function useEcoute(o: Options): Ecoute {
     if (r.type === "segment") m.segments += 1;
     if (r.type === "debut") return;
     if (r.segment.force || avant) { rafraichir(); void envoyer(r.segment, true); void ajuster(); return; }
-    if (p.continu) void envoyer(r.segment, false);
+    // 28/10 (Flo) : pendant la conversation ouverte, une phrase part sans « Jarvis » ni appui.
+    if (p.continu || conv.current.ouverte(Date.now())) void envoyer(r.segment, false);
   }, [envoyer, ajuster, rafraichir]);
 
   // ---- le micro natif : créé une fois (recréé si iOS l'a libéré) ; absent (Expo Go trop ancien) → la page garde le sien
@@ -319,6 +320,8 @@ export function useEcoute(o: Options): Ecoute {
   const sonPage = useCallback(async () => {
     clearTimeout(finSon.current);
     sonDePage.current = true;
+    // 23/10 (régression du micro) : sans « son-fin » (son perdu), le micro restait refusé pour toujours ; 60 s au plus.
+    finSon.current = setTimeout(() => { sonDePage.current = false; void ajuster(); }, 60_000);
     await ajuster();
   }, [ajuster]);
 

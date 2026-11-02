@@ -21,7 +21,9 @@ export type Sensibilite = "haute" | "normale" | "basse";
  * gain automatique de Safari ; le micro natif (mode « mesure » d'iOS) donne le son brut. À régler à l'essai réel. */
 // 20/10 au soir : rien n'a franchi 0,010 sur l'iPad Air (« Je n'ai rien entendu ») : seuils abaissés ; le seuil réel
 // reste au moins 3 fois le bruit de fond appris, et le journal du PC reçoit les niveaux mesurés (diagnostic).
-export const SEUILS: Record<Sensibilite, number> = { haute: 0.003, normale: 0.005, basse: 0.010 };
+// 28/10 (Flo, iPhone, matin) : crêtes de 0,009 et médiane de 0,0003 : la parole passait sous 0,005 ; seuils abaissés,
+// le hub relève ensuite le son jusqu'à ×80 avant Whisper.
+export const SEUILS: Record<Sensibilite, number> = { haute: 0.002, normale: 0.003, basse: 0.008 };
 export const ORDRE: Sensibilite[] = ["haute", "normale", "basse"];
 
 export const DECOUPE = {
@@ -130,7 +132,13 @@ export class Decoupeur {
     this.morceaux.push(chunk); this.total += s;
     if (fort) { this.voix += s; this.calme = 0; this.parle = true; } else this.calme += s;
     const fin = (this.parle && this.calme >= DECOUPE.parole.finS) || this.total >= DECOUPE.parole.maxS;
-    if (!this.parle && this.total >= DECOUPE.parole.rienS) { this.parole = false; this.reset(); return { type: "rien" }; }
+    if (!this.parle && this.total >= DECOUPE.parole.rienS) {
+      // 28/10 (Flo) : après un appui, le son part toujours au hub (jamais de silence) : c'est lui qui dit « je n'ai rien
+      // entendu » ou ce qu'il a compris, même si la voix est restée sous le seuil.
+      const morceaux = this.morceaux, parle = this.total, voix = this.voix;
+      this.parole = false; this.reset();
+      return { type: "segment", segment: { morceaux, parleS: parle, voixS: voix, force: true } };
+    }
     return fin ? this.finirParole() : null;
   }
 }
