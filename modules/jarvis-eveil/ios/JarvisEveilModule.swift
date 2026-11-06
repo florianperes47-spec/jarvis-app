@@ -17,6 +17,7 @@ public class JarvisEveilModule: Module {
   private var calmeJusqua = Date.distantPast           // pas deux réveils pour le même mot
   private var enFlux = false
   private var modele = "jarvis.onnx"
+  private var observateurs: [NSObjectProtocol] = []
   private var stats = (n: 0, ms: 0.0, pire: 0.0, debut: Date())
   private let format16 = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1,
                                        interleaved: false)!
@@ -88,17 +89,25 @@ public class JarvisEveilModule: Module {
     self.moteur = moteur
     stats = (0, 0, 0, Date())
 
+    // Observateurs par blocs : Module d'Expo n'est pas une classe Objective-C (pas de #selector).
     let nc = NotificationCenter.default
-    nc.addObserver(self, selector: #selector(interruption(_:)), name: AVAudioSession.interruptionNotification,
-                   object: session)
-    nc.addObserver(self, selector: #selector(changement(_:)), name: .AVAudioEngineConfigurationChange, object: moteur)
-    nc.addObserver(self, selector: #selector(remiseAZero(_:)), name: AVAudioSession.mediaServicesWereResetNotification,
-                   object: session)
+    observateurs = [
+      nc.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] n in
+        self?.interruption(n)
+      },
+      nc.addObserver(forName: .AVAudioEngineConfigurationChange, object: moteur, queue: .main) { [weak self] _ in
+        self?.relancer("route")                         // écouteurs, Bluetooth…
+      },
+      nc.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: session, queue: .main) {
+        [weak self] _ in self?.relancer("services audio")
+      },
+    ]
     emettreEtat("ecoute")
   }
 
   private func arreter(raison: String) {
-    NotificationCenter.default.removeObserver(self)
+    observateurs.forEach { NotificationCenter.default.removeObserver($0) }
+    observateurs = []
     if let m = moteur {
       m.inputNode.removeTap(onBus: 0)
       m.stop()
@@ -110,7 +119,7 @@ public class JarvisEveilModule: Module {
     if tenait { emettreEtat("arret", raison) }
   }
 
-  @objc private func interruption(_ n: Notification) {
+  private func interruption(_ n: Notification) {
     guard let brut = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
           let type = AVAudioSession.InterruptionType(rawValue: brut) else { return }
     if type == .began {
@@ -121,9 +130,6 @@ public class JarvisEveilModule: Module {
       if options.contains(.shouldResume) { relancer("reprise") } else { emettreEtat("coupe", "pas de reprise") }
     }
   }
-
-  @objc private func changement(_ n: Notification) { relancer("route") }        // écouteurs, Bluetooth…
-  @objc private func remiseAZero(_ n: Notification) { relancer("services audio") }
 
   private func relancer(_ raison: String) {
     let s = seuil, m = modele

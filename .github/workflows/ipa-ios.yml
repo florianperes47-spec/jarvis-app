@@ -50,7 +50,13 @@ jobs:
             -archivePath build/Jarvis.xcarchive \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            | tail -n 200
+            > build-xcode.log 2>&1 || {
+              echo "== erreurs du compilateur (06/11 : la fin du journal ne les montrait pas)"
+              grep -E "error:|fatal error|Undefined symbol|ld: " build-xcode.log | sort -u | head -n 80
+              tail -n 40 build-xcode.log
+              exit 65
+            }
+          tail -n 20 build-xcode.log
 
       - name: IPA (Payload/Jarvis.app zippé) et vérifications
         run: |
