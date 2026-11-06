@@ -14,6 +14,7 @@ import { theme } from "../theme/jetons";
 
 export type VueWebProps = {
   uri: string; address: string; script: string;
+  pleinEcran?: boolean;          // 06/11 : la page jusqu'aux bords, contenu dans la zone sûre
   source?: Source;                                   // le POST d'appairage au premier lancement (adresse.ts)
   onMessage: (data: string, url: string) => void;
   onLoadStart: () => void; onLoadEnd: () => void;
@@ -31,6 +32,8 @@ export const VueWeb = forwardRef<VueWebRef, VueWebProps>(function VueWeb(p, ref)
       mediaCapturePermissionGrantType="grant" allowsBackForwardNavigationGestures={false}
       setSupportMultipleWindows={false} originWhitelist={["https://*", "about:*"]}
       injectedJavaScriptBeforeContentLoaded={p.script}
+      contentInsetAdjustmentBehavior={p.pleinEcran ? "never" : "automatic"}
+      injectedJavaScript={p.pleinEcran ? ZONE_SURE : undefined}
       onMessage={(e: WebViewMessageEvent) => p.onMessage(e.nativeEvent.data, e.nativeEvent.url)}
       onShouldStartLoadWithRequest={(request) => {
         if (sameSite(p.address, request.url)) return true;
@@ -46,5 +49,9 @@ export const VueWeb = forwardRef<VueWebRef, VueWebProps>(function VueWeb(p, ref)
       }} />
   );
 });
+
+/** 06/11 : la page s'étend sous la barre d'état et l'encoche ; ses marges suivent la zone sûre d'iOS (si la page ne
+ * la gère pas déjà elle-même : `viewport-fit=cover` absent avant). */
+export const ZONE_SURE = `(function(){try{var d=document,m=d.querySelector('meta[name=viewport]');if(m&&/viewport-fit=cover/.test(m.content))return;if(!m){m=d.createElement('meta');m.name='viewport';m.content='width=device-width, initial-scale=1';d.head.appendChild(m);}m.content+=', viewport-fit=cover';var s=d.createElement('style');s.textContent='body{box-sizing:border-box;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}';d.head.appendChild(s);}catch(e){}})();true;`;
 
 const styles = StyleSheet.create({ web: { flex: 1, backgroundColor: theme().couleurs.fond } });

@@ -41,7 +41,10 @@ export type Resultat =
 export class Decoupeur {
   rate: number;
   sens: Sensibilite;
-  fond = 0.0015;                    // bruit de fond appris (départ bas : son brut du micro natif)
+  // bruit de fond appris (départ bas : son brut du micro natif). 06/11 : 0,0015 × 3 = 0,0045 tenait le seuil au-dessus
+  // des seuils abaissés le 28/10 jusqu'à ce que le fond appris redescende ; parti du tiers du seuil le plus bas, le
+  // seuil du départ est celui de la sensibilité choisie.
+  fond = SEUILS.haute / 3;
   private pre: Int16Array[] = [];
   private morceaux: Int16Array[] = [];
   private parle = false;

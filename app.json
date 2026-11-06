@@ -3,7 +3,7 @@
     "name": "Jarvis",
     "slug": "jarvis",
     "scheme": "jarvis",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -26,6 +26,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "fr.flo.jarvis",
+      "buildNumber": "2",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Jarvis n'écoute que quand tu touches « Touchez pour parler » (ou si tu actives le mot d'éveil dans ses Réglages) : le son part seulement vers ton PC, par Tailscale, et le micro se referme dès la fin.",
         "NSCameraUsageDescription": "La caméra sert seulement à lire le code QR d'appairage de Jarvis.",

@@ -2,6 +2,9 @@
  * Réglages de l'appli (appui long en haut à droite, ou sur le cœur). Rien de perso au salon : en mode foyer, seuls
  * l'écoute, la sensibilité et l'appairage sont proposés.
  */
+import { expiration as expirationSignature } from "../natif/signatureNatif";
+import { ligneSignature } from "../signature";
+import { disponible as eveilDisponible } from "../natif/eveil";
 import { Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
 import * as Updates from "expo-updates";
 import { ORDRE } from "../ecoute/decoupe";
@@ -31,6 +34,7 @@ export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
       <Logo largeur={220} />
       <Text style={styles.titre}>RÉGLAGES</Text>
       <Text style={styles.aide}>{perso ? "Mode Flo" : "Mode foyer (salon) : aucune donnée perso"} · {r.address.replace(/^https:\/\//, "")}</Text>
+      {eveilDisponible() ? ligne("Mot d'éveil sur l'appareil", "06/11 : « Jarvis » est reconnu ici, sur l'iPhone ou l'iPad : rien ne part au hub avant le mot. Un voyant vert reste visible tant que le micro attend le mot. Coupé (par défaut) : rien ne change.", r.eveil, "eveil") : null}
       {ligne("Mot d'éveil « Jarvis » (écoute continue)", "Dis « Jarvis, … » sans toucher l'écran : le micro reste alors ouvert (point orange d'iOS). Coupé (par défaut) : le micro ne s'ouvre qu'à « Touchez pour parler » et se referme dès la fin.", r.continu, "continu")}
       <View style={styles.ligne}>
         <Text style={styles.texte}>Sensibilité du micro</Text>
@@ -42,6 +46,7 @@ export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
       {perso ? ligne("Écran toujours allumé", "", r.awake, "awake") : null}
       {perso ? ligne("Notifications", "Rappels, minuteurs, production, crédits (appli ouverte au moins une fois).", r.notifs, "notifs") : null}
       {ligne("Écoute en arrière-plan", "Écran verrouillé ou autre appli : appli installée seulement (sans effet dans Expo Go).", r.arrierePlan, "arrierePlan")}
+      {ligne("Plein écran", "La page occupe tout l'écran, barre d'état comprise ; son contenu reste dans la zone sûre d'iOS (encoche, coins). Coupé : marges noires autour, comme avant le 06/11.", r.pleinEcran, "pleinEcran")}
       {ligne("Micro de la page (secours)", micNatif ? "L'ancienne écoute de la page, sans le micro de l'appli." : "Le micro natif n'est pas disponible ici : la page garde le sien.", r.microPage, "microPage")}
       <Pressable style={styles.bouton} onPress={onClose}><Text style={styles.boutonTexte}>Fermer</Text></Pressable>
       <Pressable onPress={onPair}><Text style={styles.lien}>Nouvel appairage (nouveau code QR)</Text></Pressable>
@@ -49,6 +54,7 @@ export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
         version: Updates.runtimeVersion ?? "", updateId: Updates.updateId,
         integree: Updates.isEmbeddedLaunch, creeLe: Updates.createdAt,
       })}</Text>
+      <Text style={styles.aide}>{ligneSignature(expirationSignature(), new Date())}</Text>
     </ScrollView>
   );
 }

@@ -19,7 +19,7 @@ export function useEcoute(o: Options): Ecoute {
   const ex = EXEMPLES[etat] ?? { entendu: "", reponse: "", info: "", reste: 0 };
   const suite = new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("suite");
   return {
-    etat, ...ex, reste: suite ? Number(suite) : ex.reste, disponible: true,
+    etat, ...ex, reste: suite ? Number(suite) : ex.reste, disponible: true, veille: false,
     parler: () => {}, couper: () => {}, sonPage: async () => {}, sonPageFin: () => {}, dire: () => {},
   };
 }

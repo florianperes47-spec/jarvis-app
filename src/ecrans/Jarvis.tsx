@@ -6,6 +6,7 @@
  * - Mode foyer : la page du salon, écoute « Jarvis, … » permanente, interface légère (pas d'animation), aucune
  *   donnée perso (routes du salon seulement, pas de tableau de bord ni de notification).
  */
+import { causeEchec } from "../echec";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { entrySource, messageRefus, NARROW_PT, sameSite, startUrl } from "../adresse";
@@ -76,7 +77,8 @@ export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu, onRefus }
   }, [foyer]);
   // Foyer : micro prêt = écoute continue (coupée par défaut depuis le 23/10 : choix dans les Réglages).
   const ecoute = useEcoute({ mode: r.mode, continu: r.continu, pret: foyer ? r.continu : r.pret,
-    arrierePlan: r.arrierePlan, sens: r.sens, actif: pret && micNatifVoulu, envoyer, afficherPage, journal });
+    arrierePlan: r.arrierePlan, sens: r.sens, eveilAppareil: !foyer && r.eveil, actif: pret && micNatifVoulu,
+    envoyer, afficherPage, journal });
   const micNatif = micNatifVoulu && ecoute.disponible;
   useEffect(() => { if (!ecoute.disponible) setNatifAbsent(true); }, [ecoute.disponible]);
   const script = useMemo(() => pont.scriptPont(nonce, r.mode, micNatif), [nonce, r.mode, micNatif]);
@@ -135,8 +137,9 @@ export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu, onRefus }
     return (
       <View style={styles.pair}>
         <Logo />
-        <Text style={styles.erreur}>{failed}</Text>
-        <Text style={styles.aide}>Vérifie que Tailscale est connecté et que Jarvis tourne sur le PC.</Text>
+        <Text style={styles.erreur}>{causeEchec(failed).cause}</Text>
+        <Text style={styles.aide}>{causeEchec(failed).quoiFaire}</Text>
+        <Text style={[styles.aide, { opacity: 0.6 }]}>{failed}</Text>
         <Pressable style={styles.bouton} onPress={() => { setFailed(""); setUri(page); view.current?.reload(); }}>
           <Text style={styles.boutonTexte}>Réessayer</Text>
         </Pressable>
@@ -150,7 +153,7 @@ export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu, onRefus }
     : ecoute.etat === "ecoute" ? "Dis « Jarvis, … »" : libelle(ecoute.etat);
   return (
     <View style={styles.grow}>
-      <VueWeb ref={view} uri={uri} address={r.address} script={script}
+      <VueWeb ref={view} uri={uri} address={r.address} script={script} pleinEcran={r.pleinEcran}
         source={entry && uri === entry ? entrySource(entry) : undefined}
         onMessage={onMessage}
         onLoadStart={() => { setPret(false); toutRejeter("La page se recharge."); }}
@@ -169,6 +172,9 @@ export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu, onRefus }
         </View>
       ) : null}
       <Pressable onLongPress={onSettings} delayLongPress={1500} style={styles.coin} accessibilityLabel="Réglages (appui long)" />
+      {ecoute.veille ? (                                   /* 06/11 (Flo) : jamais d'écoute du mot sans voyant */
+        <View pointerEvents="none" style={s.voyant} accessibilityLabel="Le micro attend « Jarvis »" />
+      ) : null}
     </View>
   );
 }
@@ -179,4 +185,7 @@ const s = StyleSheet.create({
   // en haut recouvraient l'en-tête et doublaient « Touchez pour parler ») ; l'état passe par pont.etat.
   dockFoyer: { right: 28, bottom: 28 },
   bandeau: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, gap: 2 },
+  // 06/11 : le voyant de la veille du mot, un point vert discret dans le coin (au-dessus de la page, toujours visible)
+  voyant: { position: "absolute", top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: "#34C759",
+    opacity: 0.85 },
 });

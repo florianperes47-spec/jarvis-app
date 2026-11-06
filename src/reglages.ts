@@ -22,12 +22,14 @@ export type Reglages = {
   arrierePlan: boolean;      // écoute en arrière-plan et écran verrouillé (development build seulement)
   notifs: boolean;           // notifications locales (perso)
   microPage: boolean;        // secours : la page garde son propre micro (comme avant l'appli native)
+  eveil: boolean;            // 06/11 : « Jarvis » reconnu sur l'appareil, rien n'est envoyé avant (coupé par défaut)
+  pleinEcran: boolean;       // 06/11 : la page occupe tout l'écran, barre d'état comprise (activé par défaut)
 };
 
 const K = {
   address: "jarvis.adresse", mode: "jarvis.mode", awake: "jarvis.ecran_allume", continu: "jarvis.ecoute_continue",
   sens: "jarvis.sensibilite", pret: "jarvis.micro_pret", arrierePlan: "jarvis.arriere_plan", notifs: "jarvis.notifications",
-  microPage: "jarvis.micro_page", version: "jarvis.reglages_version",
+  microPage: "jarvis.micro_page", eveil: "jarvis.eveil_appareil", pleinEcran: "jarvis.plein_ecran", version: "jarvis.reglages_version",
 } as const;
 
 const WEB = Platform.OS === "web";
@@ -47,7 +49,7 @@ async function set(k: string, v: string): Promise<void> {
  * le micro ne s'ouvre qu'à l'appui, Flo choisit l'écoute continue dans les Réglages). */
 export function defaut(address: string, mode: Mode): Reglages {
   return { address, mode, awake: mode === "foyer", continu: false, sens: "normale", pret: false, arrierePlan: false,
-    notifs: mode === "perso", microPage: false };
+    notifs: mode === "perso", microPage: false, eveil: false, pleinEcran: true };
 }
 
 export async function charger(): Promise<Reglages | null> {
@@ -68,6 +70,8 @@ export async function charger(): Promise<Reglages | null> {
     arrierePlan: await oui(K.arrierePlan, r.arrierePlan),
     notifs: mode === "perso" && await oui(K.notifs, r.notifs),
     microPage: await oui(K.microPage, r.microPage),
+    eveil: await oui(K.eveil, r.eveil),
+    pleinEcran: await oui(K.pleinEcran, r.pleinEcran),
   };
   const finaux = migrer(lus, version);
   if (version < VERSION) {
@@ -80,7 +84,7 @@ export async function charger(): Promise<Reglages | null> {
 export async function enregistrer(r: Reglages): Promise<void> {
   await set(K.address, r.address);
   await set(K.mode, r.mode);
-  for (const k of ["awake", "continu", "pret", "arrierePlan", "notifs", "microPage"] as const) await set(K[k], r[k] ? "1" : "0");
+  for (const k of ["awake", "continu", "pret", "arrierePlan", "notifs", "microPage", "eveil", "pleinEcran"] as const) await set(K[k], r[k] ? "1" : "0");
   await set(K.sens, r.sens);
   await set(K.version, String(VERSION));        // un choix fait dans les Réglages n'est jamais re-migré
 }

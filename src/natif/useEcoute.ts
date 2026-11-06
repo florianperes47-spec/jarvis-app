@@ -29,6 +29,7 @@ import { Decoupeur, type Segment, type Sensibilite } from "../ecoute/decoupe";
 import * as routes from "../ecoute/routes";
 import { level, normaliser, RATE, versPcm16, wav16k, type Encodage } from "../ecoute/wav";
 import type { EtatCoeur } from "../theme/jetons";
+import { disponible as eveilDisponible, eveil, fin as finAudio, pcmDeBase64, SEUILS_EVEIL, veilleVoulue } from "./eveil";
 import { Lecteur, type Morceau } from "./lecteur";
 import { aRefermer, type Audio, fermerMicro, microVoulu, modeEcoute, ouvrirMicro } from "./sessionMicro";
 
@@ -46,6 +47,7 @@ export type Options = {
   pret: boolean;             // micro toujours prêt (sinon ouvert seulement à l'appui ou en écoute continue)
   arrierePlan: boolean;      // garder le micro quand l'appli passe en arrière-plan (development build)
   sens: Sensibilite;
+  eveilAppareil?: boolean;   // 06/11 : « Jarvis » reconnu sur l'appareil (module natif), rien n'est envoyé avant
   actif: boolean;            // la page est prête (passerelle) et le micro natif est choisi
   envoyer: Envoi;
   afficherPage: (entendu: string, reponse: string, vue?: unknown) => void;
@@ -54,6 +56,7 @@ export type Options = {
 
 export type Ecoute = {
   etat: EtatCoeur; entendu: string; reponse: string; info: string; reste: number; disponible: boolean;
+  veille: boolean;                  // 06/11 : le micro de l'appareil attend « Jarvis » (voyant, jamais d'écoute sans lui)
   parler: () => void;               // bouton micro : commencer, ou envoyer tout de suite (second appui), ou couper Jarvis
   couper: () => void;
   sonPage: () => Promise<void>;     // la page va jouer un son : micro coupé d'abord
@@ -96,6 +99,10 @@ export function useEcoute(o: Options): Ecoute {
   const disponibleRef = useRef(true);
   const mesures = useRef<Mesures>(mesuresVides());
   const recreer = useRef<() => boolean>(() => false);
+  const [veille, setVeille] = useState(false);
+  const veilleOn = useRef(false);       // 06/11 : le module natif tient le micro et attend « Jarvis »
+  const reveille = useRef(false);       // « Jarvis » entendu sur l'appareil : la phrase arrive par le module
+  const tour = useRef<Record<string, number>>({});   // temps du tour (mot, fin de phrase, réponse, premier son)
 
   /** Diagnostic au journal du PC (mode perso) : format réel, niveaux (médiane, 90 %, crête), seuil, bruit de fond. */
   const diag = useCallback((pourquoi: string) => {
@@ -117,22 +124,37 @@ export function useEcoute(o: Options): Ecoute {
       : parle.current ? "parle"
         : occupe.current ? "reflechit"
           : dec.current.enParole() ? "parole"
-            : ouvert && opt.current.continu ? "ecoute"
+            : (ouvert && opt.current.continu) || veilleOn.current ? "ecoute"
               : (opt.current.continu || opt.current.pret) && !ouvert ? "pause" : "arret";
     setEtat(e);
     setReste(conv.current.reste(Date.now()));
   }, []);
 
-  /** Le micro doit-il être ouvert maintenant ? */
+  /** 06/11 : le module natif doit-il tenir le micro (veille du mot, ou phrase après le mot) ? */
+  const veilleNative = useCallback(() => {
+    const p = opt.current;
+    return veilleVoulue({ reglage: !!p.eveilAppareil, disponible: eveilDisponible(), actif: p.actif,
+      permis: permis.current, parle: parle.current, sonDePage: sonDePage.current, premierPlan: premierPlan.current,
+      arrierePlan: p.arrierePlan, enParole: dec.current.enParole(), conversation: conv.current.ouverte(Date.now()),
+      occupe: occupe.current, reveille: reveille.current });
+  }, []);
+
+  /** Le micro (flux d'expo-audio) doit-il être ouvert maintenant ? Jamais en même temps que la veille native. */
   const voulu = useCallback(() => {
     const p = opt.current;
+    if (veilleNative()) return false;
+    const motSurAppareil = !!p.eveilAppareil && eveilDisponible();
     return microVoulu({ actif: p.actif, permis: permis.current, parle: parle.current, sonDePage: sonDePage.current,
-      premierPlan: premierPlan.current, arrierePlan: p.arrierePlan, continu: p.continu, pret: p.pret,
+      premierPlan: premierPlan.current, arrierePlan: p.arrierePlan, continu: p.continu && !motSurAppareil, pret: p.pret,
       enParole: dec.current.enParole(), conversation: conv.current.ouverte(Date.now()) });
-  }, []);
+  }, [veilleNative]);
 
   const ajuster = useCallback((): Promise<void> => {
     chaine.current = chaine.current.then(async () => {
+      const nv = veilleNative();
+      if (!nv && veilleOn.current) {                       // 06/11 : le module rend le micro avant tout le reste
+        eveil.arreter(); veilleOn.current = false; reveille.current = false; setVeille(false);
+      }
       const s = flux.current;
       if (!s) return;
       const v = voulu();
@@ -151,8 +173,12 @@ export function useEcoute(o: Options): Ecoute {
       }
       else if (!v && s.isStreaming) {
         // 23/10 : micro rendu en entier ; la session n'est désactivée que si rien ne va jouer (Jarvis, la page).
-        const silence = !parle.current && !sonDePage.current && !lecteur.current.enCours;
+        const silence = !parle.current && !sonDePage.current && !lecteur.current.enCours && !nv;
         await fermerMicro(s, AUDIO, { arrierePlan: opt.current.arrierePlan, silence });
+      }
+      if (nv && !veilleOn.current) {                       // 06/11 : la veille du mot, une fois le flux rendu
+        await eveil.demarrer(SEUILS_EVEIL[opt.current.sens]);
+        veilleOn.current = true; setVeille(true);
       }
     }).catch((err: unknown) => {
       const s = flux.current;                        // jamais un micro à moitié ouvert après une erreur
@@ -167,6 +193,13 @@ export function useEcoute(o: Options): Ecoute {
     const p = opt.current;
     if (!rep.audio && !rep.flux) return;
     parle.current = true; await ajuster();                 // micro coupé AVANT le son : Jarvis ne s'entend pas
+    const t = tour.current;
+    if (t.mot && !t.son) {                                 // 06/11 : temps du tour au journal (séances guidées)
+      t.son = Date.now();
+      p.journal?.({ pourquoi: "tour après le mot d'éveil", mot_a_fin_phrase_ms: (t.finPhrase ?? t.son) - t.mot,
+        fin_phrase_a_reponse_ms: (t.reponse ?? t.son) - (t.finPhrase ?? t.mot), reponse_a_son_ms: t.son - (t.reponse ?? t.son),
+        total_ms: t.son - t.mot });
+    }
     try {
       const premier: Morceau = rep.audio ? { audio: rep.audio, ...(rep.premier || {}) } as Morceau : null;
       await lecteur.current.jouer(premier, rep.flux, async (n) => {
@@ -213,6 +246,7 @@ export function useEcoute(o: Options): Ecoute {
     try {
       mesures.current.envois += 1;
       const r = await p.envoyer(req, wav16k(normaliser(seg.morceaux), dec.current.rate));
+      if (tour.current.mot && !tour.current.reponse) tour.current.reponse = Date.now();
       occupe.current = false; rafraichir();
       suite = await traiter((r.data || {}) as Reponse, r.ok, force);
     } catch (err) {
@@ -226,24 +260,80 @@ export function useEcoute(o: Options): Ecoute {
     if (suivant && suite && envoyerEnAttente(suite)) await envoyer(suivant, false);
   }, [traiter, rafraichir]);
 
-  const surMorceau = useCallback((b: { data: ArrayBuffer; sampleRate: number; channels?: number }) => {
+  /** 06/11 : la phrase dite après « Jarvis » (module natif) est finie : retour du module à la veille du mot. */
+  const finReveil = useCallback(() => {
+    if (!reveille.current) return;
+    reveille.current = false;
+    eveil.flux(false);
+    tour.current.finPhrase = Date.now();
+  }, []);
+
+  const traiterPcm = useCallback((pcm: Int16Array, rate: number, canaux: number, octets: number) => {
     const d = dec.current, p = opt.current;
-    if (b.sampleRate && d.rate !== b.sampleRate) { d.rate = b.sampleRate; d.reset(); }
+    if (rate && d.rate !== rate) { d.rate = rate; d.reset(); }
     d.sens = conv.current.sensibilite(p.sens, Date.now());
     const avant = d.enParole();
-    const pcm = versPcm16(b.data, ENCODAGE, b.channels || 1);
     const m = mesures.current, niveau = level(pcm);
-    m.morceaux += 1; m.octets += b.data.byteLength; m.rate = b.sampleRate || m.rate; m.canaux = b.channels || 1;
+    m.morceaux += 1; m.octets += octets; m.rate = rate || m.rate; m.canaux = canaux;
     m.crete = Math.max(m.crete, niveau); m.niveaux.push(niveau); if (m.niveaux.length > 300) m.niveaux.shift();
     const r = d.morceau(pcm);
     if (!r) return;
-    if (r.type === "rien") { setInfo("Je n'ai rien entendu."); diag("bouton : rien entendu"); rafraichir(); void ajuster(); return; }
+    if (r.type === "rien") {
+      finReveil();
+      setInfo("Je n'ai rien entendu."); diag("bouton : rien entendu"); rafraichir(); void ajuster(); return;
+    }
     if (r.type === "segment") m.segments += 1;
     if (r.type === "debut") return;
-    if (r.segment.force || avant) { rafraichir(); void envoyer(r.segment, true); void ajuster(); return; }
+    if (r.segment.force || avant) { finReveil(); rafraichir(); void envoyer(r.segment, true); void ajuster(); return; }
     // 28/10 (Flo) : pendant la conversation ouverte, une phrase part sans « Jarvis » ni appui.
     if (p.continu || conv.current.ouverte(Date.now())) void envoyer(r.segment, false);
-  }, [envoyer, ajuster, rafraichir]);
+  }, [envoyer, ajuster, rafraichir, finReveil]);
+
+  const surMorceau = useCallback((b: { data: ArrayBuffer; sampleRate: number; channels?: number }) => {
+    traiterPcm(versPcm16(b.data, ENCODAGE, b.channels || 1), b.sampleRate, b.channels || 1, b.data.byteLength);
+  }, [traiterPcm]);
+
+  // ---- 06/11 : le mot d'éveil sur l'appareil (module natif) : « Jarvis » → la phrase arrive par le module
+  useEffect(() => {
+    if (!eveilDisponible()) return;
+    const r = eveil.surEveil((reveil) => {
+      if (!veilleOn.current || reveille.current) return;
+      reveille.current = true;
+      tour.current = { mot: Date.now() };
+      const d = dec.current;
+      d.commencerParole();                                 // comme un appui : la phrase part sans « Jarvis » côté hub
+      const debut = finAudio(pcmDeBase64(reveil.avant), 0.6);   // fin du mot et début de « quelle heure… »
+      traiterPcm(debut, RATE, 1, debut.byteLength);
+      setEntendu("Jarvis"); setReponse(""); setInfo("Je t'écoute…"); rafraichir();
+      opt.current.journal?.({ pourquoi: "mot d'éveil sur l'appareil", score: Math.round(reveil.score * 1000) / 1000,
+        ms_chaine: Math.round(reveil.msChaine) });
+    });
+    const p = eveil.surPcm((morceau) => {
+      if (!reveille.current) return;
+      const pcm = pcmDeBase64(morceau.b64);
+      traiterPcm(pcm, RATE, 1, pcm.byteLength);
+    });
+    const e = eveil.surEtat((etatNatif) => {
+      if (etatNatif.etat === "mesure") {
+        opt.current.journal?.({ pourquoi: "veille du mot : temps de la chaîne", ms_moyen: Math.round(etatNatif.msMoyen ?? 0),
+          ms_pire: Math.round(etatNatif.msPire ?? 0), morceaux: etatNatif.morceaux ?? 0 });
+        return;
+      }
+      if (etatNatif.etat === "coupe" || etatNatif.etat === "arret") {
+        const avait = veilleOn.current;
+        veilleOn.current = etatNatif.etat === "arret" ? false : veilleOn.current;
+        if (etatNatif.etat === "coupe") {
+          veilleOn.current = false; reveille.current = false;
+          setInfo(`L'écoute du mot est coupée par iOS (${etatNatif.raison}). Touche pour parler, ou rouvre l'appli.`);
+        }
+        setVeille(veilleOn.current);
+        if (avait) opt.current.journal?.({ pourquoi: `veille du mot : ${etatNatif.etat}`, raison: etatNatif.raison });
+        rafraichir();
+      }
+      if (etatNatif.etat === "ecoute" && etatNatif.raison) { veilleOn.current = true; setVeille(true); setInfo(""); rafraichir(); }
+    });
+    return () => { r.remove(); p.remove(); e.remove(); eveil.arreter(); veilleOn.current = false; };
+  }, [traiterPcm, rafraichir]);
 
   // ---- le micro natif : créé une fois (recréé si iOS l'a libéré) ; absent (Expo Go trop ancien) → la page garde le sien
   useEffect(() => {
@@ -341,5 +431,5 @@ export function useEcoute(o: Options): Ecoute {
       .finally(rafraichir);
   }, [traiter, rafraichir]);
 
-  return { etat, entendu, reponse, info, reste, disponible, parler, couper, sonPage, sonPageFin, dire };
+  return { etat, entendu, reponse, info, reste, disponible, veille, parler, couper, sonPage, sonPageFin, dire };
 }

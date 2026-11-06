@@ -21,6 +21,7 @@ import { Appairage } from "./src/ecrans/Appairage";
 import { Jarvis } from "./src/ecrans/Jarvis";
 import { Reglages as EcranReglages } from "./src/ecrans/Reglages";
 import { styles } from "./src/ecrans/styles";
+import { programmerRappel } from "./src/natif/signatureNatif";
 import * as notifications from "./src/notifications";
 import { lireLien, type Ordre } from "./src/raccourcis";
 import { charger, defaut, enregistrer, oublier, type Reglages } from "./src/reglages";
@@ -37,6 +38,8 @@ export default function App() {
   const [motif, setMotif] = useState("");            // pourquoi on revient au scanner (session perdue, code périmé)
 
   useEffect(() => { void charger().then(setR); }, []);
+  // 06/11 : rappel local à J-2 de la fin de la signature SideStore (reprogrammé à chaque lancement)
+  useEffect(() => { if (Platform.OS !== "web") void programmerRappel(); }, []);
 
   const keepAwake = !!r && (r.mode === "foyer" || r.awake) && ecran === "jarvis";
   useEffect(() => {
@@ -81,7 +84,8 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <SafeAreaView style={styles.page} edges={["top", "bottom", "left", "right"]}>
+      <SafeAreaView style={styles.page}
+        edges={r && ecran === "jarvis" && r.pleinEcran ? [] : ["top", "bottom", "left", "right"]}>
         {r === undefined ? (
           <View style={[styles.grow, { justifyContent: "center", gap: 24 }]}>
             <Logo />
