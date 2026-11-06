@@ -6,6 +6,7 @@
  * - Mode foyer : la page du salon, écoute « Jarvis, … » permanente, interface légère (pas d'animation), aucune
  *   donnée perso (routes du salon seulement, pas de tableau de bord ni de notification).
  */
+import { noter as noterMesure } from "../mesuresLocales";
 import { causeEchec } from "../echec";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
@@ -73,6 +74,7 @@ export function Jarvis({ r, entry, ordre, onSettings, onToggleContinu, onRefus }
 
   // Mesures du micro natif au journal du PC (pont.ts : action « diag » figée, mode Flo seulement).
   const journal = useCallback((m: Record<string, string | number | boolean>) => {
+    noterMesure(m);                                         // 06/11 : gardée aussi sur l'appareil (séances guidées)
     if (!foyer && pretRef.current) view.current?.injectJavaScript(pont.diag(m));
   }, [foyer]);
   // Foyer : micro prêt = écoute continue (coupée par défaut depuis le 23/10 : choix dans les Réglages).

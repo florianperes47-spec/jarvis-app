@@ -2,10 +2,11 @@
  * Réglages de l'appli (appui long en haut à droite, ou sur le cœur). Rien de perso au salon : en mode foyer, seuls
  * l'écoute, la sensibilité et l'appairage sont proposés.
  */
+import { nombre as nombreMesures, texte as texteMesures } from "../mesuresLocales";
 import { expiration as expirationSignature } from "../natif/signatureNatif";
 import { ligneSignature } from "../signature";
 import { disponible as eveilDisponible } from "../natif/eveil";
-import { Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, useWindowDimensions, View, Share } from "react-native";
 import * as Updates from "expo-updates";
 import { ORDRE } from "../ecoute/decoupe";
 import { ligneVersion } from "../miseAJour";
@@ -48,6 +49,9 @@ export function Reglages({ r, onChange, onPair, onClose, micNatif }: {
       {ligne("Écoute en arrière-plan", "Écran verrouillé ou autre appli : appli installée seulement (sans effet dans Expo Go).", r.arrierePlan, "arrierePlan")}
       {ligne("Plein écran", "La page occupe tout l'écran, barre d'état comprise ; son contenu reste dans la zone sûre d'iOS (encoche, coins). Coupé : marges noires autour, comme avant le 06/11.", r.pleinEcran, "pleinEcran")}
       {ligne("Micro de la page (secours)", micNatif ? "L'ancienne écoute de la page, sans le micro de l'appli." : "Le micro natif n'est pas disponible ici : la page garde le sien.", r.microPage, "microPage")}
+      <Pressable onPress={() => { void Share.share({ message: texteMesures() || "Aucune mesure pour l'instant." }); }}>
+        <Text style={styles.lien}>Partager les mesures ({nombreMesures()})</Text>
+      </Pressable>
       <Pressable style={styles.bouton} onPress={onClose}><Text style={styles.boutonTexte}>Fermer</Text></Pressable>
       <Pressable onPress={onPair}><Text style={styles.lien}>Nouvel appairage (nouveau code QR)</Text></Pressable>
       <Text style={styles.aide}>{ligneVersion({

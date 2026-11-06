@@ -25,18 +25,20 @@ final class ChaineEveil {
   private var mels = [[Float]]()                       // trames mel de 32 bandes
   private var embs = [[Float]]()                       // vecteurs de 96
 
+  private static func session(_ env: ORTEnv, _ options: ORTSessionOptions, _ dossier: URL, _ nom: String) throws -> ORTSession {
+    let chemin = dossier.appendingPathComponent(nom).path
+    guard FileManager.default.fileExists(atPath: chemin) else { throw ErreurEveil.modele(nom) }
+    return try ORTSession(env: env, modelPath: chemin, sessionOptions: options)
+  }
+
   init(dossier: URL, modeleMot: String) throws {
-    env = try ORTEnv(loggingLevel: .warning)
+    let env = try ORTEnv(loggingLevel: .warning)
     let options = try ORTSessionOptions()
     try options.setIntraOpNumThreads(1)
-    func session(_ nom: String) throws -> ORTSession {
-      let chemin = dossier.appendingPathComponent(nom).path
-      guard FileManager.default.fileExists(atPath: chemin) else { throw ErreurEveil.modele(nom) }
-      return try ORTSession(env: env, modelPath: chemin, sessionOptions: options)
-    }
-    mel = try session("melspectrogram.onnx")
-    emb = try session("embedding_model.onnx")
-    mot = try session(modeleMot)
+    self.env = env
+    mel = try ChaineEveil.session(env, options, dossier, "melspectrogram.onnx")
+    emb = try ChaineEveil.session(env, options, dossier, "embedding_model.onnx")
+    mot = try ChaineEveil.session(env, options, dossier, modeleMot)
     nomMot = try mot.inputNames().first ?? "x.1"
     reset()
   }

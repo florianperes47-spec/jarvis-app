@@ -179,6 +179,7 @@ export function useEcoute(o: Options): Ecoute {
       if (nv && !veilleOn.current) {                       // 06/11 : la veille du mot, une fois le flux rendu
         await eveil.demarrer(SEUILS_EVEIL[opt.current.sens]);
         veilleOn.current = true; setVeille(true);
+        opt.current.journal?.({ pourquoi: "veille du mot : début", premier_plan: premierPlan.current });
       }
     }).catch((err: unknown) => {
       const s = flux.current;                        // jamais un micro à moitié ouvert après une erreur
@@ -378,7 +379,11 @@ export function useEcoute(o: Options): Ecoute {
   }, [o.actif, o.arrierePlan, disponible, ajuster]);
 
   useEffect(() => {
-    const sub = AppState.addEventListener("change", (s) => { premierPlan.current = s === "active"; void ajuster(); });
+    const sub = AppState.addEventListener("change", (s) => {
+      premierPlan.current = s === "active";
+      opt.current.journal?.({ pourquoi: "appli", etat: s, veille: veilleOn.current });   // 06/11 : durée en arrière-plan
+      void ajuster();
+    });
     return () => sub.remove();
   }, [ajuster]);
 
